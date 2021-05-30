@@ -11,7 +11,7 @@ using System.Threading;
 using ZedGraph;
 using System.IO.Ports;//SerialPort 命名空间
 using System.IO;
-
+using System.Media;
 namespace tempandwet
 {
     public partial class Form1 : Form
@@ -85,6 +85,7 @@ namespace tempandwet
         double temp = 0, humi = 0;
         double light = 0, pre = 0;
         //串口数据接受事件
+        bool musicflag = false;
         private void serialPort1_DataReceived(object sender, SerialDataReceivedEventArgs e)
         {
             Thread.Sleep(100);
@@ -99,6 +100,18 @@ namespace tempandwet
                 humi = double.Parse(strdata1[2]);
                 light = double.Parse(strdata1[5]);
                 pre = double.Parse(strdata1[6]);
+                var player = new SoundPlayer();
+                if (ch4 > 20&& !musicflag)
+                {          
+                    player.SoundLocation = "F:\\16k16bit.wav";
+                    player.Play();
+                    musicflag = true;
+                }
+                else
+                {
+                    player.Stop();
+                    musicflag = false;
+                }
             }
             catch (Exception ex)
             {
