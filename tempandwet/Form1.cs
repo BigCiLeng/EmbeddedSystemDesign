@@ -9,7 +9,8 @@ using System.Threading.Tasks;
 using System.Windows.Forms;
 using System.Threading;
 using ZedGraph;
-
+using System.IO.Ports;//SerialPort 命名空间
+using System.IO;
 
 namespace tempandwet
 {
@@ -18,6 +19,9 @@ namespace tempandwet
         public Form1()
         {
             InitializeComponent();
+            serialPort1.Encoding = Encoding.GetEncoding("GB2312");   //串口编码引入GB2312编码(汉字编码)
+            //防止跨线程操作空间异常
+            Control.CheckForIllegalCrossThreadCalls = false;   //取消跨线程检查
             this.zedbind();
             timer1.Start();
         }
@@ -25,6 +29,116 @@ namespace tempandwet
         PointPairList list2 = new PointPairList();
         PointPairList list3 = new PointPairList();
         PointPairList list4 = new PointPairList();
+
+        //端口号扫描按钮
+        private void button1_Click_1(object sender, EventArgs e)
+        {
+            ReflashPortToComboBox(serialPort1, comboBox1);
+        }
+
+        //自动扫描可用串口并添加到串口号列表上
+        private void ReflashPortToComboBox(SerialPort serialPort, ComboBox comboBox)
+        {                                                               //将可用端口号添加到ComboBox
+            if (!serialPort.IsOpen)//串口处于关闭状态
+            {
+                comboBox.Items.Clear();
+                comboBox2.Items.Clear();
+                string[] str = SerialPort.GetPortNames();
+                if (str == null)
+                {
+                    MessageBox.Show("本机没有串口！", "Error");
+                    return;
+                }
+                //添加串口
+                foreach (string s in str)
+                {
+                    comboBox.Items.Add(s);
+                    Console.WriteLine(s);
+                }
+                comboBox2.Items.Add("9600");
+            }
+            else
+            {
+                MessageBox.Show("串口处于打开状态不能刷新串口列表", "Error");
+            }
+        }
+        //串口打开按钮
+        private void button2_Click(object sender, EventArgs e)
+        {
+            Int32 iBaudRate = Convert.ToInt32(comboBox2.SelectedItem.ToString());//获取波特率下拉框里选中的波特率数据从字符串转为int32
+
+            serialPort1.PortName = comboBox1.SelectedItem.ToString();//串口号
+            serialPort1.BaudRate = iBaudRate;//波特率
+            try
+            {
+                serialPort1.Open();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("串口打开失败" + ex, "error");
+            }
+        }
+
+
+        double co=0, ch4=0;
+        double heat_temp = 0;
+        double temp = 0, humi = 0;
+        double light = 0, pre = 0;
+        //串口数据接受事件
+        private void serialPort1_DataReceived(object sender, SerialDataReceivedEventArgs e)
+        {
+            Thread.Sleep(100);
+            try
+            {
+                string content = serialPort1.ReadExisting();//从串口控件读取输入流返回为string
+                string[] strdata1 = content.Split(' ');
+                co=double.Parse(strdata1[3]);
+                ch4=double.Parse(strdata1[4]);
+                heat_temp = double.Parse(strdata1[7]);
+                temp = double.Parse(strdata1[1]);
+                humi = double.Parse(strdata1[2]);
+                light = double.Parse(strdata1[5]);
+                pre = double.Parse(strdata1[6]);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("数据接受出错" + ex, "error");
+            }
+        }
+
+        //发送数据按钮
+        private void senddata()
+        {
+            string flag="a";
+            if (radioButton1.Checked)
+            {
+                flag = "a";
+            }else if (radioButton2.Checked)
+            {
+                flag = "b";
+            }else if (radioButton3.Checked)
+            {
+                flag = "c";
+            }else if (radioButton4.Checked)
+            {
+                flag = "d";
+            }
+            if (serialPort1.IsOpen)//判断串口是否打开，如果打开执行下一步操作
+            {
+                        try
+                        {
+                            serialPort1.Write(flag);//发送数据
+                        }
+                        catch (Exception ex)
+                        {
+                            MessageBox.Show(ex.Message, "串口数据写入错误");//出错提示
+                            serialPort1.Close();
+                        }
+
+            }
+        }
+
+
         double Average1(double d1,double d2,double b)
         {
             double O1=0.0;
@@ -34,21 +148,16 @@ namespace tempandwet
         }
         double data1 = 0.0;
         double data2 = 0.0;
+        double data3 = 0.0;
         double miao = 0;
-        double buf = 0.0;
-        double b = 0.9;
-        double o=0.0;
         private void readdata()
         {
             try
             {
                 miao = (double)new XDate(DateTime.Now.AddMilliseconds(-50));
-
-                Random rd = new Random();
-                buf = data1;
-
-                data1 = 20 + rd.Next(6, 9);
-                data2 = 80 + rd.Next(5, 16);
+                data1 = co;
+                data2 = ch4;
+                data3 = heat_temp;
                 if (list1.Count > 50)
                     list1.RemoveAt(0);
                 if (list2.Count > 50)
@@ -59,10 +168,8 @@ namespace tempandwet
                     list4.RemoveAt(0);
                 list1.Add(miao, data1);
                 list2.Add(miao, data2);
-                list3.Add(miao, data1);
+                list3.Add(miao, data3);
                 list4.Add(miao, data1);
-                buf = o;
-                b = b * 0.9;
                 this.zedrefreshmethod();
                 Thread.Sleep(50);
             }
@@ -131,6 +238,7 @@ namespace tempandwet
             }
         }
 
+
         private void Form1_SizeChanged(object sender, EventArgs e)
         {
             zedGraphControl1.Size = new Size(this.Size.Width - 162, (this.Size.Height - 115) / 2);
@@ -149,10 +257,19 @@ namespace tempandwet
                 catch { }
             }
         }
-
+        bool timerflag = false;
         private void timer1_Tick(object sender, EventArgs e)
         {
-            readdata();
+            if (!timerflag)
+            {
+                senddata();
+                timerflag = true;
+            }
+            else
+            {
+                readdata();
+                timerflag = false;
+            }
         }
     }
 }
