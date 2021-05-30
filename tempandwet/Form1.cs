@@ -12,6 +12,7 @@ using ZedGraph;
 using System.IO.Ports;//SerialPort 命名空间
 using System.IO;
 using System.Media;
+using System.Drawing.Drawing2D;
 namespace tempandwet
 {
     public partial class Form1 : Form
@@ -182,7 +183,14 @@ namespace tempandwet
                 list1.Add(miao, data1);
                 list2.Add(miao, data2);
                 list3.Add(miao, data3);
-                list4.Add(miao, data1);
+                ucMeter1.Value = Convert.ToDecimal(temp);
+                ucMeter2.Value = Convert.ToDecimal(humi);
+                ucMeter3.Value = Convert.ToDecimal(pre);
+                ucMeter4.Value = Convert.ToDecimal(light);
+                textBox1.Text=temp.ToString();
+                textBox2.Text = humi.ToString();
+                textBox3.Text = pre.ToString();
+                textBox4.Text = light.ToString();
                 this.zedrefreshmethod();
                 Thread.Sleep(50);
             }
@@ -232,6 +240,31 @@ namespace tempandwet
             LineItem l1=zedGraphControl1.GraphPane.AddCurve("CO", list1, Color.Blue);
             LineItem l2=zedGraphControl1.GraphPane.AddCurve("CH4", list2, Color.Red);
             LineItem l3=zedGraphControl2.GraphPane.AddCurve("Heat_temp", list3, Color.Green);
+
+            ucMeter1.MinValue=-30;
+            ucMeter1.MaxValue =50;
+            ucMeter1.SplitCount = 4;
+
+            ucMeter2.MinValue = 20;
+            ucMeter2.MaxValue = 100;
+            ucMeter2.SplitCount = 4;
+
+            ucMeter3.MinValue = 35;
+            ucMeter3.MaxValue = 115;
+            ucMeter3.SplitCount = 4;
+
+            ucMeter4.MinValue = 0;
+            ucMeter4.MaxValue = 240;
+            ucMeter4.SplitCount = 4;
+
+
+
+            pictureBox1.BackgroundImage = Image.FromFile(@"Resources\route.png");//加入这句
+            pictureBox2.BackgroundImage = Image.FromFile(@"Resources\bottom.png");//加入这句
+
+        }
+        private void ybp()
+        {
 
         }
         private delegate void ZedRefreshHandle();
